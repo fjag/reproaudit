@@ -1,0 +1,120 @@
+from __future__ import annotations
+from datetime import date
+from pathlib import Path
+from typing import List
+
+from ..config import Config
+from ..llm.client import LLMClient
+from ..models.claims import Claim
+from ..models.findings import Finding
+from ..models.report import Report
+from ..reporting.markdown import build_summary, render
+from ..utils.cache import DiskCache
+from . import stage1_claims
+from .stage2_repo.cloner import clone_repo
+from .stage2_repo.rule_based.runner import build_context, run_all_checks
+from .stage2_repo.llm_based.runner import run_llm_analysis
+from .stage3_matching import build_findings
+
+TOOL_VERSION = "0.1.0"
+_STATE_FILE = "reproaudit_state.json"
+
+
+def run_stage1(config: Config) -> None:
+    """Extract claims from PDFs and write claims.yaml. Then exit."""
+    client = LLMClient(model=config.model)
+    claims = stage1_claims.run(config, client)
+    print(f"\n✓ Extracted {len(claims)} claims.")
+    print(f"  Review and edit: {config.claims_path}")
+    print(f"\nThen run: reproaudit resume --output {config.output_dir}")
+
+    # Save state for resume
+    import json
+    state = {
+        "repo_url": config.repo_url,
+        "model": config.model,
+        "dimensions": config.dimensions,
+        "suppress": list(config.suppress),
+        "no_cache": config.no_cache,
+        "paper_paths": [str(p) for p in config.paper_paths],
+    }
+    (config.output_dir / _STATE_FILE).write_text(json.dumps(state, indent=2))
+
+
+def run_stage2_and_3(config: Config) -> Report:
+    """Run repo analysis and generate the report. Called by `resume`."""
+    client = LLMClient(model=config.model)
+    cache = DiskCache(config.cache_dir)
+
+    # Load claims
+    claims = stage1_claims.run(config, client)
+    confirmed_claims = [c for c in claims if c.confirmed]
+    print(f"  Loaded {len(confirmed_claims)} confirmed claims.")
+
+    # Clone repo
+    print(f"  Cloning {config.repo_url}...")
+    repo = clone_repo(config.repo_url)
+    commit_sha = repo.commit_sha
+    print(f"  Cloned at commit {commit_sha[:8]}")
+
+    try:
+        # Rule-based analysis
+        print("  Running rule-based checks...")
+        ctx = build_context(repo.path)
+        raw_rule = run_all_checks(ctx)
+        print(f"  Rule-based: {len(raw_rule)} raw findings")
+
+        # LLM-based analysis
+        print("  Running LLM-based analysis...")
+        raw_llm = run_llm_analysis(ctx, confirmed_claims, client, cache)
+        print(f"  LLM-based: {len(raw_llm)} raw findings")
+
+        # Stage 3: match and build findings
+        all_raw = raw_rule + raw_llm
+        findings = build_findings(all_raw, claims, config.suppress)
+
+        # Build report
+        summary = build_summary(findings)
+        report = Report(
+            meta={
+                "paper": ", ".join(p.name for p in config.paper_paths),
+                "repo_url": config.repo_url,
+                "repo_commit": commit_sha,
+                "audit_date": str(date.today()),
+                "tool_version": TOOL_VERSION,
+            },
+            claims=claims,
+            findings=findings,
+            summary=summary,
+        )
+
+        # Render
+        render(report, config.report_path)
+        print(f"\n✓ Report written to {config.report_path}")
+        _print_summary(summary)
+
+    finally:
+        repo.cleanup()
+
+    return report
+
+
+def _print_summary(summary) -> None:
+    from rich.table import Table
+    from rich.console import Console
+    from ..config import DIMENSION_LABELS
+
+    console = Console()
+    table = Table(title="ReproAudit Summary", show_header=True)
+    table.add_column("Dimension")
+    table.add_column("Status")
+    table.add_column("Critical", justify="right")
+    table.add_column("Important", justify="right")
+    table.add_column("Advisory", justify="right")
+
+    for s in summary:
+        label = DIMENSION_LABELS.get(s.dimension, s.dimension)
+        status = {"issues_found": "⚠ Issues", "looks_good": "✓ OK", "could_not_assess": "? N/A"}.get(s.status, s.status)
+        table.add_row(label, status, str(s.critical), str(s.important), str(s.advisory))
+
+    console.print(table)

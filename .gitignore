@@ -26,3 +26,8 @@ htmlcov/
 .vscode/
 .idea/
 *.swp
+
+# ReproAudit
+reproaudit_output/
+*.pdf
+.venv*/

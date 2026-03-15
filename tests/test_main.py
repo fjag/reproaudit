@@ -1,7 +1,8 @@
-from project2.main import main
+"""Smoke test — verifies the package is importable."""
 
-
-def test_main(capsys):
-    main()
-    captured = capsys.readouterr()
-    assert "Hello from project2!" in captured.out
+def test_import():
+    import reproaudit  # noqa: F401
+    from reproaudit.models.claims import Claim, ClaimSource
+    from reproaudit.models.findings import Finding, CodeLocation, RawFinding
+    from reproaudit.models.report import Report, DimensionSummary
+    assert True
