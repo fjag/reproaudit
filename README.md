@@ -35,7 +35,7 @@ ReproAudit runs a three-stage pipeline:
 - Python 3.11 or higher
 - An [Anthropic API key](https://console.anthropic.com) with available credits (see [Cost](#cost))
 - Git installed and accessible on your PATH
-- A research paper in PDF format (provided by you — the tool does not fetch papers)
+- One or more PDF files: the main paper and, optionally, any supplementary material (provided by you — the tool does not fetch papers from publishers)
 - A public GitHub repository URL
 
 ---
