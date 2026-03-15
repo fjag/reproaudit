@@ -45,8 +45,8 @@ ReproAudit runs a three-stage pipeline:
 ### 1. Clone or download this repository
 
 ```bash
-git clone https://github.com/fjag/project2
-cd project2
+git clone https://github.com/fjag/reproaudit
+cd reproaudit
 ```
 
 ### 2. Create a virtual environment
