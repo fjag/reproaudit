@@ -2,7 +2,7 @@
 
 A static reproducibility auditor for research papers with companion GitHub repositories, targeting applied ML, data science, computational biology, and bioinformatics fields, where Python-based analysis code is routinely shared alongside publications.
 
-ReproAudit takes a research paper PDF and a GitHub repository URL, then produces a structured Markdown audit report identifying specific issues that would prevent or undermine reproduction of the paper's claimed results. It does **not** execute any code from the repository — analysis is entirely static.
+ReproAudit takes a research paper PDF and any supplementary documents, along with a GitHub repository URL,, then produces a structured Markdown audit report identifying specific issues that would prevent or undermine reproduction of the paper's claimed results. It does **not** execute any code from the repository — analysis is entirely static.
 
 > **No technical support is offered for this tool. It is provided as-is, with no warranty of any kind. Use at your own risk.**
 
