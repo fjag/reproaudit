@@ -163,4 +163,4 @@ For architecture and implementation details, see [TECHNICAL.md](TECHNICAL.md).
 
 ## Disclaimer
 
-This tool is provided as-is with no warranty, guarantee of accuracy, or commitment to maintenance. Findings should be treated as a starting point for manual review, not as definitive conclusions. The author cannot be held responsible for decisions made based on this tool's output. No technical support is offered.
+ReproAudit is an experimental research tool intended to assist — not replace — expert judgement. Findings should be treated as a starting point for manual review, not as definitive conclusions. Accuracy is not guaranteed, and results may vary depending on code structure and documentation quality. The author assumes no responsibility for decisions made based on this tool's output. This project is maintained on a best-effort basis with no commitment to updates or user support.
