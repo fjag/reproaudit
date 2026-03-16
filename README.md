@@ -149,7 +149,7 @@ reproaudit_output/
 
 ## Limitations
 
-- Python repositories only (no R, Julia, or multi-language repos)
+- Python repositories only
 - Public GitHub repositories only (no private repos)
 - Static analysis only — the tool never executes repository code
 - LLM-based findings carry a confidence score; low-confidence findings are framed as questions
