@@ -4,7 +4,7 @@ A static reproducibility auditor for research papers with companion GitHub repos
 
 ReproAudit takes a research paper PDF and any supplementary documents, along with a GitHub repository URL, then produces a structured Markdown audit report identifying specific issues that would prevent or undermine reproduction of the paper's claimed results. It does **not** execute any code from the repository — analysis is entirely static.
 
-> **No technical support is offered for this tool. It is provided as-is, with no warranty of any kind. Use at your own risk.**
+> **No technical support is offered for this tool. It is provided as-is, with no warranty of any kind.**
 
 ---
 
