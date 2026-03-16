@@ -90,7 +90,7 @@ The tool extracts claims from the PDF and writes them to `reproaudit_output/clai
 
 ### Step 2 — Review claims
 
-Open `reproaudit_output/claims.yaml` and verify the extracted claims. Set `confirmed: false` on any claim that was incorrectly extracted to exclude it from analysis.
+Open `reproaudit_output/claims.yaml` and verify the extracted claims. Set `confirmed: false` on any claim that was incorrectly extracted (or you are not interested in) to exclude it from analysis.
 
 ### Step 3 — Resume analysis
 
