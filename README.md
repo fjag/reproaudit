@@ -161,6 +161,12 @@ For architecture and implementation details, see [TECHNICAL.md](TECHNICAL.md).
 
 ---
 
+## Acknowledgements
+
+This tool was co-developed with [Claude Code](https://claude.ai/claude-code) (Anthropic), which assisted in system design, specification, and implementation.
+
+---
+
 ## Disclaimer
 
 ReproAudit is an experimental research tool intended to assist — not replace — expert judgement. Findings should be treated as a starting point for manual review, not as definitive conclusions. Accuracy is not guaranteed, and results may vary depending on code structure and documentation quality. The author assumes no responsibility for decisions made based on this tool's output. This project is maintained on a best-effort basis with no commitment to updates or user support.
