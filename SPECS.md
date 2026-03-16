@@ -175,6 +175,6 @@ The following issues were identified during specification and inform the current
 
 **"Results with no corresponding code" is scoped conservatively.** Determining which code generates which figure/table is unreliable for complex repos. v1 only checks that some evaluation code exists, not that every reported metric has a corresponding computation.
 
-**The "does not fetch from the internet" principle** in the original brief was imprecise: LLM API calls are external network calls. The correct statement is: the tool does not fetch research papers, datasets, or domain content. LLM API calls are the only external network dependency.
+**The "does not fetch from the internet" principle**: The tool does not fetch research papers, datasets, or domain content. LLM API calls are the only external network dependency.
 
 **False positives are minimised by design.** Low-confidence LLM findings (<50%) are framed as questions. LLM findings are never assigned Critical severity at <60% confidence.
