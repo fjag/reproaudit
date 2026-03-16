@@ -31,7 +31,7 @@ It does **not** execute the code. All analysis is static: AST parsing, pattern m
 - **Reviewers** checking supplementary code alongside a submission
 - **Students** attempting to reproduce published results
 - **Researchers** auditing their own work before submission
-- **Lab leads** spot-checking code quality on team outputs
+- **Team leads** spot-checking code quality on team outputs
 
 ---
 
