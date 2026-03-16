@@ -122,7 +122,7 @@ reproaudit findings explain EVAL-001
 
 ## Cost
 
-ReproAudit calls the Anthropic API (Claude) for claim extraction and LLM-based analysis. Typical costs using `claude-sonnet-4-6`:
+ReproAudit calls the Anthropic API (Claude) for claim extraction and LLM-based analysis. Typical costs using `claude-sonnet-4-6` (but first test to verify before running full analysis on an actual paper):
 
 | Scenario | Estimated cost |
 |----------|---------------|
