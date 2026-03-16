@@ -154,7 +154,7 @@ reproaudit_output/
 - Static analysis only — the tool never executes repository code
 - LLM-based findings carry a confidence score; low-confidence findings are framed as questions
 - PDF parsing quality affects claim extraction accuracy — complex layouts (scanned PDFs, multi-column equations) may degrade results
-- Data leakage detection is intrafile only; cross-file leakage is not detected
+- Leakage detection operates within individual source files only; pipelines where data flows across multiple scripts or notebooks are not analysed.
 
 For a full discussion of scope and known limitations, see [SPECS.md](SPECS.md).
 For architecture and implementation details, see [TECHNICAL.md](TECHNICAL.md).
