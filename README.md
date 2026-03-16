@@ -3,6 +3,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)
+![Powered by Claude](https://img.shields.io/badge/powered%20by-Claude%20API-blueviolet.svg)
 
 A static reproducibility auditor for research papers with companion GitHub repositories, targeting applied ML, data science, computational biology, and bioinformatics fields, where Python-based analysis code is routinely shared alongside publications.
 
