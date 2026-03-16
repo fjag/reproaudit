@@ -1,5 +1,7 @@
 # ReproAudit
 
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 A static reproducibility auditor for research papers with companion GitHub repositories, targeting applied ML, data science, computational biology, and bioinformatics fields, where Python-based analysis code is routinely shared alongside publications.
 
 ReproAudit takes a research paper PDF and any supplementary documents, along with a GitHub repository URL, then produces a structured Markdown audit report identifying specific issues that would prevent or undermine reproduction of the paper's claimed results. It does **not** execute any code from the repository — analysis is entirely static.
