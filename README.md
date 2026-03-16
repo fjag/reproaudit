@@ -14,8 +14,8 @@ ReproAudit runs a three-stage pipeline:
 
 1. **Claim extraction** — parses the paper and (optional) any supplementary documents PDFs using an LLM to extract quantitative results, methodological claims, and data descriptions. Pauses for you to review the claims to analyse before continuing.
 2. **Repository analysis** — clones the GitHub repo and runs two analysis passes:
-   - Rule-based static analysis (AST parsing, import resolution, pattern matching)
-   - LLM-based analysis (file summarisation, claim–code matching, evaluation methodology checks)
+   - Rule-based static analysis (AST parsing, import resolution, pattern matching).
+   - LLM-based analysis (file summarisation, claim–code matching, evaluation methodology checks).
 3. **Report generation** — cross-references claims against findings and produces a structured Markdown report.
 
 ### What it checks
