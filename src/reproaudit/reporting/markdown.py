@@ -1,12 +1,12 @@
 from __future__ import annotations
 from datetime import date
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Set
 
 from ..config import DIMENSION_LABELS, DIMENSIONS_ALL
 from ..models.claims import Claim
 from ..models.findings import Finding
-from ..models.report import DimensionSummary, Report
+from ..models.report import ClaimsSummary, DimensionSummary, Report
 
 
 def render(report: Report, output_path: Path) -> None:
@@ -27,9 +27,32 @@ def render(report: Report, output_path: Path) -> None:
         "",
     ]
 
-    # Summary table
+    # Claims Summary
+    if report.claims_summary:
+        cs = report.claims_summary
+        lines += [
+            "## Claims Summary",
+            "",
+            f"**Total claims extracted:** {cs.total_claims}  ",
+            f"**Confirmed claims:** {cs.confirmed_claims}  ",
+            "",
+            "| Status | Count |",
+            "|--------|-------|",
+            f"| ✅ Supported (code matches paper) | {cs.supported} |",
+            f"| ❌ Unsupported (discrepancy found) | {cs.unsupported} |",
+            f"| ❓ Not assessed | {cs.not_assessed} |",
+            "",
+        ]
+        # Calculate support rate for confirmed claims
+        if cs.confirmed_claims > 0:
+            support_rate = (cs.supported / cs.confirmed_claims) * 100
+            lines.append(f"**Claim support rate:** {support_rate:.1f}% of confirmed claims  ")
+            lines.append("")
+        lines += ["---", ""]
+
+    # Dimension Summary table
     lines += [
-        "## Summary",
+        "## Dimension Summary",
         "",
         "| Dimension | Status | Critical | Important | Advisory |",
         "|-----------|--------|----------|-----------|----------|",
@@ -118,7 +141,7 @@ def render(report: Report, output_path: Path) -> None:
     output_path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def build_summary(findings: List[Finding]) -> List[DimensionSummary]:
+def build_summary(findings: List[Finding], claims: List[Claim] = None) -> List[DimensionSummary]:
     summaries: List[DimensionSummary] = []
     for dim in DIMENSIONS_ALL:
         dim_findings = [f for f in findings if f.dimension == dim and not f.suppressed]
@@ -137,6 +160,39 @@ def build_summary(findings: List[Finding]) -> List[DimensionSummary]:
             advisory=advisory,
         ))
     return summaries
+
+
+def build_claims_summary(claims: List[Claim], findings: List[Finding]) -> ClaimsSummary:
+    """Build a summary of claim verification results.
+
+    A claim is considered:
+    - supported: confirmed by user AND no CLAIM-* findings reference it
+    - unsupported: confirmed by user AND has CLAIM-* findings referencing it
+    - not_assessed: not confirmed by user OR not analyzed
+    """
+    total = len(claims)
+    confirmed = [c for c in claims if c.confirmed]
+    confirmed_ids: Set[str] = {c.id for c in confirmed}
+
+    # Find claims with issues (referenced by CLAIM-* findings)
+    claim_findings = [f for f in findings if f.id.startswith("CLAIM-") and not f.suppressed]
+    unsupported_claim_ids: Set[str] = set()
+    for f in claim_findings:
+        if f.claim_ref and f.claim_ref in confirmed_ids:
+            unsupported_claim_ids.add(f.claim_ref)
+
+    # Calculate stats
+    unsupported = len(unsupported_claim_ids)
+    supported = len(confirmed_ids) - unsupported
+    not_assessed = total - len(confirmed_ids)
+
+    return ClaimsSummary(
+        total_claims=total,
+        confirmed_claims=len(confirmed_ids),
+        supported=supported,
+        unsupported=unsupported,
+        not_assessed=not_assessed,
+    )
 
 
 def _severity_order(severity: str) -> int:

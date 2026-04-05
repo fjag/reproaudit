@@ -3,7 +3,10 @@ from pathlib import Path
 from typing import List
 
 from ....models.findings import RawFinding
+from ....utils.logging import get_logger
 from .base import BaseCheck, RepoContext
+
+logger = get_logger(__name__)
 from .checks.randomness import RandomnessCheck, SklearnRandomStateCheck
 from .checks.paths import HardcodedPathsCheck
 from .checks.dependencies import MissingDepsCheck
@@ -58,8 +61,10 @@ def run_all_checks(ctx: RepoContext) -> List[RawFinding]:
     findings: List[RawFinding] = []
     for check in ALL_CHECKS:
         try:
-            findings.extend(check.run(ctx))
+            logger.debug("Running check %s", check.check_id)
+            results = check.run(ctx)
+            findings.extend(results)
+            logger.debug("Check %s found %d findings", check.check_id, len(results))
         except Exception as e:
-            import warnings
-            warnings.warn(f"Check {check.check_id} failed: {e}")
+            logger.warning("Check %s failed: %s", check.check_id, e)
     return findings

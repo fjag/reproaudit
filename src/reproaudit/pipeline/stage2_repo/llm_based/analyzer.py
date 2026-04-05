@@ -5,10 +5,13 @@ from ....llm.client import LLMClient
 from ....llm.structured import ClaimMatchResult, LLMFindingResult, extract_structured
 from ....models.claims import Claim
 from ....models.findings import CodeLocation, Finding, RawFinding
+from ....utils.logging import get_logger
 from .retriever import CodeSpan
 from .prompts import claim_match as _cm
 from .prompts import eval_integrity as _ei
 from .prompts import data_availability as _da
+
+logger = get_logger(__name__)
 
 
 def analyze_claim(
@@ -26,7 +29,8 @@ def analyze_claim(
     prompt = _cm.build(claim.text, claim.structured, span_dicts)
     try:
         result = extract_structured(client, prompt, ClaimMatchResult)
-    except Exception:
+    except (RuntimeError, ValueError, KeyError) as e:
+        logger.debug("Claim match extraction failed for claim %s: %s", claim.id, e)
         return None
 
     if result.matches:
@@ -63,7 +67,8 @@ def analyze_eval_integrity(
     prompt = _ei.build(summary_dicts, span_dicts)
     try:
         result = extract_structured(client, prompt, LLMFindingResult)
-    except Exception:
+    except (RuntimeError, ValueError, KeyError) as e:
+        logger.debug("Eval integrity extraction failed: %s", e)
         return None
     if not result.found:
         return None
@@ -90,7 +95,8 @@ def analyze_data_availability(
     prompt = _da.build(readme_text, summary_dicts, data_claims)
     try:
         result = extract_structured(client, prompt, LLMFindingResult)
-    except Exception:
+    except (RuntimeError, ValueError, KeyError) as e:
+        logger.debug("Data availability extraction failed: %s", e)
         return None
     if not result.found:
         return None

@@ -1,9 +1,38 @@
 from __future__ import annotations
+import re
 import tempfile
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 import git
+
+
+def validate_repo_url(url: str) -> None:
+    """Validate that the URL is a safe git repository URL.
+
+    Raises ValueError if the URL is invalid or potentially unsafe.
+    """
+    parsed = urlparse(url)
+
+    # Only allow https and git protocols
+    if parsed.scheme not in ("https", "git", "ssh"):
+        raise ValueError(
+            f"Invalid URL scheme '{parsed.scheme}'. Only https://, git://, and ssh:// URLs are allowed."
+        )
+
+    # Basic URL structure validation
+    if not parsed.netloc:
+        raise ValueError(f"Invalid URL: missing host in '{url}'")
+
+    # Block localhost and private IPs to prevent SSRF
+    hostname = parsed.hostname or ""
+    if hostname in ("localhost", "127.0.0.1", "0.0.0.0") or hostname.startswith("192.168.") or hostname.startswith("10."):
+        raise ValueError(f"Invalid URL: private/local addresses are not allowed: '{hostname}'")
+
+    # Validate it looks like a git URL (has a path component)
+    if not parsed.path or parsed.path == "/":
+        raise ValueError(f"Invalid URL: no repository path specified in '{url}'")
 
 
 class ClonedRepo:
@@ -20,6 +49,8 @@ class ClonedRepo:
 
 def clone_repo(url: str) -> ClonedRepo:
     """Clone a public GitHub repo to a temp directory. Returns ClonedRepo."""
+    validate_repo_url(url)
+
     tmpdir = tempfile.TemporaryDirectory(prefix="reproaudit_")
     dest = Path(tmpdir.name) / "repo"
     try:

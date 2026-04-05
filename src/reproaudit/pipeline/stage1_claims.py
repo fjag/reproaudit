@@ -10,7 +10,10 @@ from ..llm.client import LLMClient
 from ..llm.structured import ClaimExtractionResult, ExtractedClaim, extract_structured
 from ..models.claims import Claim, ClaimSource
 from ..utils.cache import DiskCache, hash_files
+from ..utils.logging import get_logger
 from ..utils.pdf import extract_pdf_text, pages_to_text
+
+logger = get_logger(__name__)
 
 
 _SYSTEM = """\
@@ -95,8 +98,7 @@ def run(config: Config, client: LLMClient) -> List[Claim]:
             all_extracted.extend(result.claims)
         except Exception as e:
             # Degrade gracefully: skip chunk, note failure
-            import warnings
-            warnings.warn(f"Claim extraction failed on chunk {i+1}/{len(chunks)}: {e}")
+            logger.warning("Claim extraction failed on chunk %d/%d: %s", i + 1, len(chunks), e)
 
     # Deduplicate by quote similarity
     all_extracted = _deduplicate(all_extracted)

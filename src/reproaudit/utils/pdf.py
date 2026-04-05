@@ -24,6 +24,7 @@ def extract_pdf_text(paths: List[Path]) -> List[PageText]:
 
 
 def _extract_single(path: Path, doc_idx: int) -> List[PageText]:
+    # Try pdfplumber first (usually better text extraction)
     try:
         import pdfplumber
         with pdfplumber.open(path) as pdf:
@@ -32,9 +33,13 @@ def _extract_single(path: Path, doc_idx: int) -> List[PageText]:
                 text = page.extract_text() or ""
                 result.append(PageText(doc_idx, i, text))
             return result
-    except Exception:
+    except (OSError, IOError, ValueError, TypeError) as e:
+        # Fall back to pypdf if pdfplumber fails
+        pass
+    except ImportError:
         pass
 
+    # Fallback to pypdf
     try:
         from pypdf import PdfReader
         reader = PdfReader(str(path))
@@ -43,8 +48,10 @@ def _extract_single(path: Path, doc_idx: int) -> List[PageText]:
             text = page.extract_text() or ""
             result.append(PageText(doc_idx, i, text))
         return result
-    except Exception as e:
+    except (OSError, IOError, ValueError, TypeError) as e:
         raise RuntimeError(f"Failed to parse PDF {path}: {e}") from e
+    except ImportError as e:
+        raise RuntimeError(f"No PDF library available to parse {path}") from e
 
 
 def pages_to_text(pages: List[PageText]) -> str:

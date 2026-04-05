@@ -32,6 +32,7 @@ class Config:
     no_cache: bool = False
     no_confirm: bool = False
     verbose: bool = False
+    log_file: Optional[str] = None
 
     @property
     def cache_dir(self) -> Path:

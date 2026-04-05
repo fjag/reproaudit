@@ -8,6 +8,7 @@ from rich.console import Console
 
 from .config import Config, DIMENSIONS_ALL
 from .pipeline.orchestrator import run_stage1, run_stage2_and_3
+from .utils.logging import setup_logging
 
 console = Console()
 _STATE_FILE = "reproaudit_state.json"
@@ -34,6 +35,8 @@ def cli():
 @click.option("--no-cache", is_flag=True, default=False, help="Disable caching.")
 @click.option("--no-confirm", is_flag=True, default=False,
               help="Skip claim confirmation step and proceed immediately.")
+@click.option("--verbose", "-v", is_flag=True, default=False, help="Enable verbose logging.")
+@click.option("--log-file", default=None, type=click.Path(), help="Write logs to file.")
 def audit(
     papers: Tuple[Path, ...],
     repo: str,
@@ -43,8 +46,11 @@ def audit(
     suppress: Optional[str],
     no_cache: bool,
     no_confirm: bool,
+    verbose: bool,
+    log_file: Optional[str],
 ):
     """Extract claims from PDFs and pause for review before repo analysis."""
+    setup_logging(verbose=verbose, log_file=log_file)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     config = Config(
@@ -56,6 +62,8 @@ def audit(
         suppress=set(suppress.split(",")) if suppress else set(),
         no_cache=no_cache,
         no_confirm=no_confirm,
+        verbose=verbose,
+        log_file=log_file,
     )
 
     console.print(f"[bold]ReproAudit[/bold] — auditing {repo}")
@@ -73,8 +81,11 @@ def audit(
 @click.option("--output", "output_dir", default="./reproaudit_output",
               type=click.Path(exists=True, path_type=Path),
               help="Output directory from the audit run.")
-def resume(output_dir: Path):
+@click.option("--verbose", "-v", is_flag=True, default=False, help="Enable verbose logging.")
+@click.option("--log-file", default=None, type=click.Path(), help="Write logs to file.")
+def resume(output_dir: Path, verbose: bool, log_file: Optional[str]):
     """Resume analysis after reviewing claims.yaml."""
+    setup_logging(verbose=verbose, log_file=log_file)
     state_path = output_dir / _STATE_FILE
     if not state_path.exists():
         raise click.ClickException(
@@ -90,6 +101,8 @@ def resume(output_dir: Path):
         dimensions=state.get("dimensions", list(DIMENSIONS_ALL)),
         suppress=set(state.get("suppress", [])),
         no_cache=state.get("no_cache", False),
+        verbose=verbose,
+        log_file=log_file,
     )
 
     console.print(f"[bold]ReproAudit resume[/bold] — {config.repo_url}")
@@ -105,7 +118,7 @@ def findings():
 @findings.command(name="list")
 def findings_list():
     """Print all finding IDs and their descriptions."""
-    from .pipeline.stage3_matching import _TITLES, _SEVERITIES
+    from .pipeline.stage3_matching import FINDING_CATALOGUE
     from rich.table import Table
 
     table = Table(title="ReproAudit Finding Catalogue", show_lines=True)
@@ -113,10 +126,9 @@ def findings_list():
     table.add_column("Severity")
     table.add_column("Description")
 
-    for fid, title in sorted(_TITLES.items()):
-        severity = _SEVERITIES.get(fid, "advisory")
-        colour = {"critical": "red", "important": "yellow", "advisory": "blue"}.get(severity, "white")
-        table.add_row(fid, f"[{colour}]{severity}[/{colour}]", title)
+    for fid, spec in sorted(FINDING_CATALOGUE.items()):
+        colour = {"critical": "red", "important": "yellow", "advisory": "blue"}.get(spec.severity, "white")
+        table.add_row(fid, f"[{colour}]{spec.severity}[/{colour}]", spec.title)
 
     console.print(table)
 
@@ -125,16 +137,13 @@ def findings_list():
 @click.argument("finding_id")
 def findings_explain(finding_id: str):
     """Explain a specific finding type."""
-    from .pipeline.stage3_matching import _TITLES, _SEVERITIES, _SUGGESTIONS
+    from .pipeline.stage3_matching import FINDING_CATALOGUE
 
     finding_id = finding_id.upper()
-    title = _TITLES.get(finding_id)
-    if not title:
+    spec = FINDING_CATALOGUE.get(finding_id)
+    if not spec:
         raise click.ClickException(f"Unknown finding ID: {finding_id}")
 
-    severity = _SEVERITIES.get(finding_id, "advisory")
-    suggestion = _SUGGESTIONS.get(finding_id, "(no specific suggestion)")
-
-    console.print(f"[bold]{finding_id}[/bold] — {title}")
-    console.print(f"Severity: [bold]{severity}[/bold]")
-    console.print(f"\nSuggestion: {suggestion}")
+    console.print(f"[bold]{finding_id}[/bold] — {spec.title}")
+    console.print(f"Severity: [bold]{spec.severity}[/bold]")
+    console.print(f"\nSuggestion: {spec.suggestion}")

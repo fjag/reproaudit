@@ -15,7 +15,7 @@ class NotebookOrderCheck(BaseCheck):
         for path in ctx.notebook_files:
             try:
                 nb = json.loads(path.read_text(encoding="utf-8", errors="replace"))
-            except Exception:
+            except (json.JSONDecodeError, OSError, IOError):
                 continue
             cells = nb.get("cells", [])
             counts: List[Optional[int]] = []

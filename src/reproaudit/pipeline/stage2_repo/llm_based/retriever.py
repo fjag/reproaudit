@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
 from .summarizer import FileSummary
 
@@ -17,7 +17,7 @@ class CodeSpan:
 
 def retrieve_for_claim(
     claim_text: str,
-    claim_structured: dict,
+    claim_structured: Dict[str, Any],
     summaries: List[FileSummary],
     repo_root: Path,
     top_k: int = 3,
@@ -62,7 +62,7 @@ def retrieve_for_claim(
     return spans
 
 
-def _extract_terms(text: str, structured: dict) -> List[str]:
+def _extract_terms(text: str, structured: Dict[str, Any]) -> List[str]:
     terms: List[str] = []
     # Add structured values as exact terms
     for v in structured.values():

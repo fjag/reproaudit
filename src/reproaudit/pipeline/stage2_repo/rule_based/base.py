@@ -1,11 +1,26 @@
 from __future__ import annotations
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import ast
 
 from ....models.findings import CodeLocation, RawFinding
+
+# Regex pattern for parsing dependency specifications (package name + version spec)
+_DEP_PATTERN = re.compile(r"^([A-Za-z0-9_\-\.]+)(.*)")
+
+
+def _parse_dep_line(line: str) -> Optional[Tuple[str, str]]:
+    """Parse a dependency line into (package_name, version_spec).
+
+    Returns None if the line doesn't match a valid dependency pattern.
+    """
+    m = _DEP_PATTERN.match(line.strip())
+    if m:
+        return (m.group(1).lower(), m.group(2).strip())
+    return None
 
 
 @dataclass
@@ -62,15 +77,14 @@ def _parse_dep_file(path: Path) -> Dict[str, str]:
 
 
 def _parse_requirements_txt(text: str) -> Dict[str, str]:
-    deps = {}
+    deps: Dict[str, str] = {}
     for line in text.splitlines():
         line = line.strip()
         if not line or line.startswith("#") or line.startswith("-"):
             continue
-        import re
-        m = re.match(r"^([A-Za-z0-9_\-\.]+)(.*)", line)
-        if m:
-            deps[m.group(1).lower()] = m.group(2).strip()
+        parsed = _parse_dep_line(line)
+        if parsed:
+            deps[parsed[0]] = parsed[1]
     return deps
 
 
@@ -82,35 +96,33 @@ def _parse_pyproject_toml(text: str) -> Dict[str, str]:
             import tomli as tomllib
         except ImportError:
             return {}
-    import re
     try:
         data = tomllib.loads(text)
-    except Exception:
+    except (ValueError, KeyError, TypeError):
         return {}
     deps: Dict[str, str] = {}
     for dep_str in data.get("project", {}).get("dependencies", []):
-        m = re.match(r"^([A-Za-z0-9_\-\.]+)(.*)", dep_str)
-        if m:
-            deps[m.group(1).lower()] = m.group(2).strip()
+        parsed = _parse_dep_line(dep_str)
+        if parsed:
+            deps[parsed[0]] = parsed[1]
     return deps
 
 
 def _parse_setup_cfg(text: str) -> Dict[str, str]:
-    import configparser, re
+    import configparser
     cfg = configparser.ConfigParser()
     try:
         cfg.read_string(text)
-    except Exception:
+    except (configparser.Error, ValueError):
         return {}
-    deps = {}
+    deps: Dict[str, str] = {}
     raw = cfg.get("options", "install_requires", fallback="")
     for line in raw.splitlines():
-        line = line.strip()
-        if not line:
+        if not line.strip():
             continue
-        m = re.match(r"^([A-Za-z0-9_\-\.]+)(.*)", line)
-        if m:
-            deps[m.group(1).lower()] = m.group(2).strip()
+        parsed = _parse_dep_line(line)
+        if parsed:
+            deps[parsed[0]] = parsed[1]
     return deps
 
 
@@ -119,22 +131,21 @@ def _parse_conda_env(text: str) -> Dict[str, str]:
         import yaml as _yaml
     except ImportError:
         return {}
-    import re
     try:
         data = _yaml.safe_load(text)
-    except Exception:
+    except (_yaml.YAMLError, ValueError):
         return {}
-    deps = {}
+    deps: Dict[str, str] = {}
     for item in data.get("dependencies", []):
         if isinstance(item, str):
-            m = re.match(r"^([A-Za-z0-9_\-\.]+)(.*)", item)
-            if m:
-                deps[m.group(1).lower()] = m.group(2).strip()
+            parsed = _parse_dep_line(item)
+            if parsed:
+                deps[parsed[0]] = parsed[1]
         elif isinstance(item, dict):
             for dep_str in item.get("pip", []):
-                m = re.match(r"^([A-Za-z0-9_\-\.]+)(.*)", dep_str)
-                if m:
-                    deps[m.group(1).lower()] = m.group(2).strip()
+                parsed = _parse_dep_line(dep_str)
+                if parsed:
+                    deps[parsed[0]] = parsed[1]
     return deps
 
 

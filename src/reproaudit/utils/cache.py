@@ -21,7 +21,7 @@ class DiskCache:
         if p.exists():
             try:
                 return json.loads(p.read_text())
-            except Exception:
+            except (json.JSONDecodeError, OSError, IOError):
                 return None
         return None
 

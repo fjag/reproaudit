@@ -1,6 +1,7 @@
 from __future__ import annotations
 from collections import defaultdict
-from typing import List
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 from ..models.claims import Claim
 from ..models.findings import Finding, RawFinding
@@ -15,90 +16,203 @@ _CHECK_TO_DIM = {
     "DATA": "data_availability",
 }
 
-# Catalogue severities for rule-based checks
-_SEVERITIES = {
-    "CLAIM-001": "critical", "CLAIM-002": "critical",
-    "CLAIM-003": "important", "CLAIM-004": "important",
-    "CLAIM-005": "advisory", "CLAIM-006": "advisory",
-    "EVAL-001": "critical", "EVAL-002": "critical",
-    "EVAL-003": "critical",
-    "EVAL-004": "important", "EVAL-005": "important",
-    "EVAL-006": "important", "EVAL-007": "important",
-    "EVAL-008": "advisory", "EVAL-009": "advisory", "EVAL-010": "advisory",
-    "REPRO-001": "critical", "REPRO-002": "critical",
-    "REPRO-003": "important", "REPRO-004": "important", "REPRO-005": "important",
-    "REPRO-006": "advisory", "REPRO-007": "advisory",
-    "EXEC-001": "critical", "EXEC-002": "critical",
-    "EXEC-003": "critical", "EXEC-004": "critical",
-    "EXEC-005": "important", "EXEC-006": "important",
-    "EXEC-007": "advisory", "EXEC-008": "advisory",
-    "DATA-001": "critical", "DATA-002": "critical",
-    "DATA-003": "important", "DATA-004": "important",
-    "DATA-005": "advisory", "DATA-006": "advisory",
+
+@dataclass(frozen=True)
+class FindingSpec:
+    """Specification for a finding type in the catalogue."""
+    severity: str
+    title: str
+    suggestion: str = "Review and address this issue."
+
+
+# Consolidated finding catalogue - single source of truth
+FINDING_CATALOGUE: Dict[str, FindingSpec] = {
+    # Claim-Code Consistency
+    "CLAIM-001": FindingSpec(
+        severity="critical",
+        title="Reported hyperparameter differs from code value",
+        suggestion="Update the code to match the hyperparameter value stated in the paper, or document the discrepancy.",
+    ),
+    "CLAIM-002": FindingSpec(
+        severity="critical",
+        title="Method described in paper has no corresponding code",
+        suggestion="Implement the missing method or explain in README why it is omitted.",
+    ),
+    "CLAIM-003": FindingSpec(
+        severity="important",
+        title="Evaluation metric described in paper not computed in code",
+        suggestion="Add code to compute and report this metric.",
+    ),
+    "CLAIM-004": FindingSpec(
+        severity="important",
+        title="Model architecture in paper differs from implementation",
+    ),
+    "CLAIM-005": FindingSpec(
+        severity="advisory",
+        title="Ablation study described but no ablation script found",
+    ),
+    "CLAIM-006": FindingSpec(
+        severity="advisory",
+        title="Dataset referenced in paper not referenced in code",
+    ),
+
+    # Evaluation Integrity
+    "EVAL-001": FindingSpec(
+        severity="critical",
+        title="Preprocessing fit() applied before train/test split (data leakage)",
+        suggestion="Fit preprocessors only on training data (after the split), not on the full dataset.",
+    ),
+    "EVAL-002": FindingSpec(
+        severity="critical",
+        title="Potential target leakage through input features",
+    ),
+    "EVAL-003": FindingSpec(
+        severity="critical",
+        title="Test set used for iterative model selection",
+    ),
+    "EVAL-004": FindingSpec(
+        severity="important",
+        title="Accuracy on class-imbalanced data without disclosure",
+    ),
+    "EVAL-005": FindingSpec(
+        severity="important",
+        title="ROC-AUC reported without PR-AUC in potential rare-event setting",
+        suggestion="Report average_precision_score (PR-AUC) alongside roc_auc_score for imbalanced settings.",
+    ),
+    "EVAL-006": FindingSpec(
+        severity="important",
+        title="Decision threshold optimised on evaluation data",
+    ),
+    "EVAL-007": FindingSpec(
+        severity="important",
+        title="Single-split evaluation with no uncertainty quantification",
+        suggestion="Use cross-validation (KFold) or bootstrap resampling to quantify result uncertainty.",
+    ),
+    "EVAL-008": FindingSpec(
+        severity="advisory",
+        title="No subgroup evaluation for sensitive attributes",
+    ),
+    "EVAL-009": FindingSpec(
+        severity="advisory",
+        title="Training metrics not reported (overfitting undiagnosable)",
+    ),
+    "EVAL-010": FindingSpec(
+        severity="advisory",
+        title="Calibration not assessed when probabilities used downstream",
+    ),
+
+    # Computational Reproducibility
+    "REPRO-001": FindingSpec(
+        severity="critical",
+        title="No random seed set in entry-point script(s)",
+        suggestion="Add random.seed(42) (or a documented seed value) at the top of your main script.",
+    ),
+    "REPRO-002": FindingSpec(
+        severity="critical",
+        title="Framework random generators not seeded",
+        suggestion="Seed all framework generators: np.random.seed(), torch.manual_seed(), tf.random.set_seed().",
+    ),
+    "REPRO-003": FindingSpec(
+        severity="important",
+        title="sklearn estimators instantiated without random_state",
+        suggestion="Pass random_state=<seed> when instantiating this estimator.",
+    ),
+    "REPRO-004": FindingSpec(
+        severity="important",
+        title="glob/listdir used for data loading without sorting",
+        suggestion="Wrap glob/listdir calls with sorted() to ensure consistent file ordering.",
+    ),
+    "REPRO-005": FindingSpec(
+        severity="important",
+        title="Scientific library version unpinned (on watchlist)",
+        suggestion="Pin this library to a specific version range in your dependency spec (e.g. ==x.y.z or >=x.y,<x+1).",
+    ),
+    "REPRO-006": FindingSpec(
+        severity="advisory",
+        title="GPU non-determinism not acknowledged",
+        suggestion="Add torch.use_deterministic_algorithms(True) and set CUBLAS_WORKSPACE_CONFIG=:4096:8.",
+    ),
+    "REPRO-007": FindingSpec(
+        severity="advisory",
+        title="Python hash randomisation not disabled",
+    ),
+
+    # Execution Completeness
+    "EXEC-001": FindingSpec(
+        severity="critical",
+        title="No entry point identified",
+        suggestion="Add a clear entry point (if __name__ == '__main__') or document run commands in README.",
+    ),
+    "EXEC-002": FindingSpec(
+        severity="critical",
+        title="Import not found in any dependency specification",
+        suggestion="Add this package to requirements.txt or pyproject.toml dependencies.",
+    ),
+    "EXEC-003": FindingSpec(
+        severity="critical",
+        title="Hardcoded absolute path pointing to non-repo filesystem",
+        suggestion="Replace hardcoded paths with relative paths or environment variable / CLI argument.",
+    ),
+    "EXEC-004": FindingSpec(
+        severity="critical",
+        title="Notebook cells have out-of-order execution metadata",
+        suggestion="Re-run the notebook top-to-bottom and save it to fix cell execution order.",
+    ),
+    "EXEC-005": FindingSpec(
+        severity="important",
+        title="No dependency specification file found",
+        suggestion="Add a requirements.txt or pyproject.toml listing all dependencies with version pins.",
+    ),
+    "EXEC-006": FindingSpec(
+        severity="important",
+        title="Intermediate file consumed but not produced in repo",
+    ),
+    "EXEC-007": FindingSpec(
+        severity="advisory",
+        title="Execution order across scripts not documented",
+    ),
+    "EXEC-008": FindingSpec(
+        severity="advisory",
+        title="No data download or preparation script found",
+        suggestion="Add a data download script or document data acquisition steps in README.",
+    ),
+
+    # Data Availability
+    "DATA-001": FindingSpec(
+        severity="critical",
+        title="Data source referenced in paper not mentioned in repo",
+    ),
+    "DATA-002": FindingSpec(
+        severity="critical",
+        title="Restricted dataset used with no access instructions",
+    ),
+    "DATA-003": FindingSpec(
+        severity="important",
+        title="No data download script or instructions",
+        suggestion="Add a download script or clear instructions for obtaining the required data.",
+    ),
+    "DATA-004": FindingSpec(
+        severity="important",
+        title="Expected data format/schema not documented",
+    ),
+    "DATA-005": FindingSpec(
+        severity="advisory",
+        title="No checksums or data versioning for input files",
+        suggestion="Provide checksums (md5/sha256) for input data files, or use DVC for data versioning.",
+    ),
+    "DATA-006": FindingSpec(
+        severity="advisory",
+        title="Sample sizes in paper may differ from code expectations",
+    ),
 }
 
-_TITLES = {
-    "CLAIM-001": "Reported hyperparameter differs from code value",
-    "CLAIM-002": "Method described in paper has no corresponding code",
-    "CLAIM-003": "Evaluation metric described in paper not computed in code",
-    "CLAIM-004": "Model architecture in paper differs from implementation",
-    "CLAIM-005": "Ablation study described but no ablation script found",
-    "CLAIM-006": "Dataset referenced in paper not referenced in code",
-    "EVAL-001": "Preprocessing fit() applied before train/test split (data leakage)",
-    "EVAL-002": "Potential target leakage through input features",
-    "EVAL-003": "Test set used for iterative model selection",
-    "EVAL-004": "Accuracy on class-imbalanced data without disclosure",
-    "EVAL-005": "ROC-AUC reported without PR-AUC in potential rare-event setting",
-    "EVAL-006": "Decision threshold optimised on evaluation data",
-    "EVAL-007": "Single-split evaluation with no uncertainty quantification",
-    "EVAL-008": "No subgroup evaluation for sensitive attributes",
-    "EVAL-009": "Training metrics not reported (overfitting undiagnosable)",
-    "EVAL-010": "Calibration not assessed when probabilities used downstream",
-    "REPRO-001": "No random seed set in entry-point script(s)",
-    "REPRO-002": "Framework random generators not seeded",
-    "REPRO-003": "sklearn estimators instantiated without random_state",
-    "REPRO-004": "glob/listdir used for data loading without sorting",
-    "REPRO-005": "Scientific library version unpinned (on watchlist)",
-    "REPRO-006": "GPU non-determinism not acknowledged",
-    "REPRO-007": "Python hash randomisation not disabled",
-    "EXEC-001": "No entry point identified",
-    "EXEC-002": "Import not found in any dependency specification",
-    "EXEC-003": "Hardcoded absolute path pointing to non-repo filesystem",
-    "EXEC-004": "Notebook cells have out-of-order execution metadata",
-    "EXEC-005": "No dependency specification file found",
-    "EXEC-006": "Intermediate file consumed but not produced in repo",
-    "EXEC-007": "Execution order across scripts not documented",
-    "EXEC-008": "No data download or preparation script found",
-    "DATA-001": "Data source referenced in paper not mentioned in repo",
-    "DATA-002": "Restricted dataset used with no access instructions",
-    "DATA-003": "No data download script or instructions",
-    "DATA-004": "Expected data format/schema not documented",
-    "DATA-005": "No checksums or data versioning for input files",
-    "DATA-006": "Sample sizes in paper may differ from code expectations",
-}
 
-_SUGGESTIONS = {
-    "REPRO-001": "Add random.seed(42) (or a documented seed value) at the top of your main script.",
-    "REPRO-002": "Seed all framework generators: np.random.seed(), torch.manual_seed(), tf.random.set_seed().",
-    "REPRO-003": "Pass random_state=<seed> when instantiating this estimator.",
-    "REPRO-004": "Wrap glob/listdir calls with sorted() to ensure consistent file ordering.",
-    "REPRO-005": "Pin this library to a specific version range in your dependency spec (e.g. ==x.y.z or >=x.y,<x+1).",
-    "REPRO-006": "Add torch.use_deterministic_algorithms(True) and set CUBLAS_WORKSPACE_CONFIG=:4096:8.",
-    "EXEC-001": "Add a clear entry point (if __name__ == '__main__') or document run commands in README.",
-    "EXEC-002": "Add this package to requirements.txt or pyproject.toml dependencies.",
-    "EXEC-003": "Replace hardcoded paths with relative paths or environment variable / CLI argument.",
-    "EXEC-004": "Re-run the notebook top-to-bottom and save it to fix cell execution order.",
-    "EXEC-005": "Add a requirements.txt or pyproject.toml listing all dependencies with version pins.",
-    "EXEC-008": "Add a data download script or document data acquisition steps in README.",
-    "EVAL-001": "Fit preprocessors only on training data (after the split), not on the full dataset.",
-    "EVAL-005": "Report average_precision_score (PR-AUC) alongside roc_auc_score for imbalanced settings.",
-    "EVAL-007": "Use cross-validation (KFold) or bootstrap resampling to quantify result uncertainty.",
-    "DATA-003": "Add a download script or clear instructions for obtaining the required data.",
-    "DATA-005": "Provide checksums (md5/sha256) for input data files, or use DVC for data versioning.",
-    "CLAIM-001": "Update the code to match the hyperparameter value stated in the paper, or document the discrepancy.",
-    "CLAIM-002": "Implement the missing method or explain in README why it is omitted.",
-    "CLAIM-003": "Add code to compute and report this metric.",
-}
+def get_finding_spec(check_id: str) -> FindingSpec:
+    """Get the specification for a finding type, with fallback defaults."""
+    return FINDING_CATALOGUE.get(
+        check_id,
+        FindingSpec(severity="advisory", title=check_id)
+    )
 
 
 def build_findings(
@@ -111,7 +225,7 @@ def build_findings(
     claims_by_id = {c.id: c for c in claims}
 
     # Count instances per check_id
-    instance_counter: dict = defaultdict(int)
+    instance_counter: Dict[str, int] = defaultdict(int)
     findings: List[Finding] = []
 
     for raw in deduped:
@@ -125,8 +239,11 @@ def build_findings(
         prefix = check_id.split("-")[0]
         dimension = _CHECK_TO_DIM.get(prefix, "exec_completeness")
 
+        # Get spec from catalogue
+        spec = get_finding_spec(check_id)
+
         # Severity: use catalogue; LLM evidence may override downward
-        severity = _SEVERITIES.get(check_id, "advisory")
+        severity = spec.severity
         if raw.confidence < 0.6 and severity == "critical":
             severity = "important"
 
@@ -138,10 +255,10 @@ def build_findings(
         # Explanation and suggestion
         explanation = raw.evidence.get("explanation") or raw.evidence.get("message", "")
         if not explanation:
-            explanation = _default_explanation(check_id, raw.evidence)
-        suggestion = _SUGGESTIONS.get(check_id, "Review and address this issue.")
+            explanation = _default_explanation(check_id, raw.evidence, spec.title)
+        suggestion = spec.suggestion
 
-        title = _TITLES.get(check_id, check_id)
+        title = spec.title
         if raw.evidence.get("title"):
             title = raw.evidence["title"]
 
@@ -195,9 +312,9 @@ def _deduplicate(raw: List[RawFinding]) -> List[RawFinding]:
     return kept
 
 
-def _default_explanation(check_id: str, evidence: dict) -> str:
+def _default_explanation(check_id: str, evidence: dict, fallback_title: str) -> str:
     parts = []
     for k, v in evidence.items():
         if k not in ("claim_id", "title", "suggestion", "severity"):
             parts.append(f"{k}: {v}")
-    return "; ".join(parts) if parts else _TITLES.get(check_id, check_id)
+    return "; ".join(parts) if parts else fallback_title
