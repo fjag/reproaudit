@@ -1,5 +1,6 @@
 # ReproAudit
 
+![Version](https://img.shields.io/badge/version-0.2.0-green.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)
